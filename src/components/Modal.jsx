@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 export default function Modal({ title, onClose, children, maxWidth = 480 }) {
   useEffect(() => {
@@ -11,14 +12,15 @@ export default function Modal({ title, onClose, children, maxWidth = 480 }) {
     }
   }, [onClose])
 
-  return (
+  // createPortal: 모달을 document.body에 직접 붙임 → overflow 부모에 절대 안 잘림
+  return createPortal(
     <div
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(0,0,0,0.5)',
-        zIndex: 1000,
-        overflowY: 'scroll',
+        zIndex: 9999,
+        overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -31,9 +33,10 @@ export default function Modal({ title, onClose, children, maxWidth = 480 }) {
           borderRadius: 20,
           width: '100%',
           maxWidth,
-          margin: 'auto',      /* 내용 짧으면 세로 중앙, 길면 위에서부터 */
-          flexShrink: 0,       /* 절대 찌그러지지 않음 */
+          margin: 'auto',
+          flexShrink: 0,
           boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          animation: 'slideUp 0.25s cubic-bezier(0.16,1,0.3,1)',
         }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -52,6 +55,7 @@ export default function Modal({ title, onClose, children, maxWidth = 480 }) {
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body  // ← body에 직접 렌더링
   )
 }

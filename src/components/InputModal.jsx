@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 
 const LAST_CURRENCY_KEY = 'zzalrang_last_currency'
@@ -96,13 +97,13 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
 
   const typeColor = { expense: 'var(--color-expense)', income: 'var(--color-income)', transfer: 'var(--color-transfer)' }
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(0,0,0,0.5)',
-        zIndex: 1000,
+        zIndex: 9999,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-end',
@@ -115,7 +116,6 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
           width: '100%',
           maxWidth: 480,
           margin: '0 auto',
-          /* svh 로 주소창 제외한 정확한 높이 계산 */
           maxHeight: 'min(90svh, 90vh)',
           display: 'flex',
           flexDirection: 'column',
@@ -135,18 +135,10 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
           padding:'8px 20px 12px', borderBottom:'1px solid #f0f0f0', flexShrink:0,
         }}>
           <span style={{ fontSize:17, fontWeight:700 }}>{record ? '내역 수정' : '내역 입력'}</span>
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={() => document.activeElement?.blur()}
-              style={{ background:'#f5f5f5', borderRadius:8, padding:'6px 10px', border:'none', cursor:'pointer', display:'flex', alignItems:'center' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="12" rx="2"/><path d="M6 14l6 4 6-4"/>
-              </svg>
-            </button>
-            <button onClick={onClose}
-              style={{ width:30, height:30, borderRadius:'50%', background:'#f5f5f5', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, color:'#999' }}>
-              ✕
-            </button>
-          </div>
+          <button onClick={onClose}
+            style={{ width:30, height:30, borderRadius:'50%', background:'#f5f5f5', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, color:'#999' }}>
+            ✕
+          </button>
         </div>
 
         {/* 폼 - 내부 스크롤 */}
@@ -234,6 +226,7 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
