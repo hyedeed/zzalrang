@@ -102,29 +102,40 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
   const typeColor = { expense: 'var(--color-expense)', income: 'var(--color-income)', transfer: 'var(--color-transfer)' }
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}
-      style={{ alignItems: 'flex-end', padding: 0 }}>
-      <div style={{
-        background: '#fff',
-        borderRadius: '20px 20px 0 0',
-        width: '100%',
-        maxWidth: 480,
-        maxHeight: '92vh',
-        display: 'flex',
-        flexDirection: 'column',
-        animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1)',
-      }}>
+    <div
+      onClick={onClose}
+      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:1000, animation:'fadeIn 0.2s ease' }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff',
+          borderRadius: '20px 20px 0 0',
+          width: '100%',
+          maxWidth: 480,
+          maxHeight: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
+          animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1)',
+        }}>
+        {/* 드래그 핸들 */}
+        <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 4px' }}>
+          <div style={{ width:36, height:4, borderRadius:2, background:'#e0e0e0' }} />
+        </div>
+
         {/* 헤더 */}
-        <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <span style={{ fontSize: 17, fontWeight: 700 }}>{record ? '내역 수정' : '내역 입력'}</span>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ padding:'8px 20px 12px', borderBottom:'1px solid #f0f0f0', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <span style={{ fontSize:17, fontWeight:700 }}>{record ? '내역 수정' : '내역 입력'}</span>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             <button onClick={dismissKeyboard}
-              style={{ background: '#f5f5f5', borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              style={{ background:'#f5f5f5', borderRadius:8, padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="4" width="20" height="12" rx="2"/><path d="M6 14l6 4 6-4"/>
               </svg>
             </button>
-            <span className="modal-close" onClick={onClose}>✕</span>
+            <button onClick={onClose}
+              style={{ width:32, height:32, borderRadius:'50%', background:'#f5f5f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, color:'#999' }}>
+              ✕
+            </button>
           </div>
         </div>
 
