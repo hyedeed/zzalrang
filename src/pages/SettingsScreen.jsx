@@ -228,6 +228,10 @@ export default function SettingsScreen({ session }) {
           <div style={{ fontSize:12, color:'#bbb', marginBottom:4 }}>로그인 계정</div>
           <div style={{ fontSize:14, color:'#424242' }}>{session.user.email}</div>
         </div>
+
+        {/* 내역 초기화 */}
+        <ResetRecordsButton uid={uid} />
+
         <button onClick={() => supabase.auth.signOut()}
           style={{ padding:'15px 16px', background:'#fff', border:'1px solid #f0f0f0', borderRadius:12, width:'100%', textAlign:'left', display:'flex', alignItems:'center', gap:12 }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E15F5F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -236,6 +240,64 @@ export default function SettingsScreen({ session }) {
           <span style={{ fontSize:14, fontWeight:500, color:'#E15F5F' }}>로그아웃</span>
         </button>
       </div>
+    </div>
+  )
+}
+
+/* ─── 내역 초기화 버튼 ─── */
+function ResetRecordsButton({ uid }) {
+  const [step, setStep] = useState(0) // 0: 기본, 1: 1차확인, 2: 삭제중
+  const [count, setCount] = useState(null)
+
+  const handleClick = async () => {
+    if (step === 0) {
+      // 몇 건인지 먼저 확인
+      const { count: cnt } = await supabase.from('records').select('*', { count:'exact', head:true }).eq('user_id', uid)
+      setCount(cnt)
+      setStep(1)
+    } else if (step === 1) {
+      // 최종 확인 후 삭제
+      const confirm2 = window.confirm(`정말로 내역 ${count}건을 전부 삭제할까요?\n이 작업은 되돌릴 수 없어요.`)
+      if (!confirm2) { setStep(0); return }
+      setStep(2)
+      await supabase.from('records').delete().eq('user_id', uid)
+      setStep(0)
+      setCount(null)
+      alert('내역이 모두 삭제됐어요.')
+    }
+  }
+
+  return (
+    <div style={{ background:'#fff', border:'1px solid #f0f0f0', borderRadius:12, overflow:'hidden' }}>
+      <button onClick={handleClick} disabled={step === 2}
+        style={{ padding:'15px 16px', background:'none', width:'100%', textAlign:'left', display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E15F5F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+        </svg>
+        <div>
+          <div style={{ fontSize:14, fontWeight:500, color:'#E15F5F' }}>
+            {step === 2 ? '삭제 중...' : '내역 전체 초기화'}
+          </div>
+          <div style={{ fontSize:12, color:'#bbb' }}>모든 거래 내역을 삭제해요</div>
+        </div>
+      </button>
+      {step === 1 && (
+        <div style={{ padding:'12px 16px', borderTop:'1px solid #f5f5f5', background:'#fff5f5' }}>
+          <div style={{ fontSize:13, color:'#E15F5F', marginBottom:10 }}>
+            ⚠️ 총 <strong>{count}건</strong>의 내역이 삭제돼요. 계속하려면 버튼을 다시 눌러주세요.
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={()=>setStep(0)}
+              style={{ flex:1, padding:'9px', background:'#f5f5f5', borderRadius:8, fontSize:13, color:'#666', border:'none', cursor:'pointer' }}>
+              취소
+            </button>
+            <button onClick={handleClick}
+              style={{ flex:1, padding:'9px', background:'#E15F5F', borderRadius:8, fontSize:13, color:'#fff', fontWeight:600, border:'none', cursor:'pointer' }}>
+              전부 삭제
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
