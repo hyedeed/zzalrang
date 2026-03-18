@@ -47,6 +47,29 @@ export default function HomeScreen({ session }) {
   const handleDelete = async (id, e) => {
     e.stopPropagation()
     if (!confirm('이 내역을 삭제할까요?')) return
+
+    // 삭제 전 내역 정보 가져오기
+    const record = records.find(r => r.id === id)
+
+    // 자산 잔액 되돌리기
+    if (record && record.asset_id) {
+      const { data: asset } = await supabase.from('assets').select('balance').eq('id', record.asset_id).single()
+      if (asset) {
+        let newBalance = asset.balance
+        if (record.type === 'expense') newBalance += record.amount       // 지출 취소 → 잔액 증가
+        else if (record.type === 'income') newBalance -= record.amount   // 수입 취소 → 잔액 감소
+        else if (record.type === 'transfer') newBalance += record.amount // 이체 출발 취소 → 잔액 증가
+        await supabase.from('assets').update({ balance: newBalance }).eq('id', record.asset_id)
+      }
+      // 이체였으면 도착 자산도 되돌리기
+      if (record.type === 'transfer' && record.to_asset_id) {
+        const { data: toAsset } = await supabase.from('assets').select('balance').eq('id', record.to_asset_id).single()
+        if (toAsset) {
+          await supabase.from('assets').update({ balance: toAsset.balance - record.amount }).eq('id', record.to_asset_id)
+        }
+      }
+    }
+
     await supabase.from('records').delete().eq('id', id)
     load()
   }
