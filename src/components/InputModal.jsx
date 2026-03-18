@@ -109,6 +109,8 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
         flexDirection: 'column',
         justifyContent: 'flex-end',
         zIndex: 1000,
+        // 위쪽 안전 여백 - 모달이 화면 위로 넘어가지 않게
+        paddingTop: 44,
       }}>
 
       {/* 내용 영역 - 클릭 이벤트 막기 */}
@@ -122,8 +124,8 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
-          // 모바일에서 실제 보이는 영역의 최대 90%
-          maxHeight: '90dvh',
+          // paddingTop 44 + 이 값 = 100% (화면 꽉 채우되 위 여백 유지)
+          maxHeight: 'calc(100dvh - 44px)',
           animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1)',
           boxShadow: '0 -8px 40px rgba(0,0,0,0.12)',
         }}>
