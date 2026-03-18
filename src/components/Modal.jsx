@@ -1,17 +1,15 @@
-/**
- * 공통 모달 컴포넌트
- * - 바깥 어두운 배경 클릭하면 닫힘
- * - 상단 오른쪽 X 버튼으로 닫힘
- * - ESC 키로 닫힘
- */
 import { useEffect } from 'react'
 
 export default function Modal({ title, onClose, children, maxWidth = 480 }) {
-  // ESC 키로 닫기
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    // 모달 열릴 때 body 스크롤 막기
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', handler)
+      document.body.style.overflow = ''
+    }
   }, [onClose])
 
   return (
@@ -20,8 +18,12 @@ export default function Modal({ title, onClose, children, maxWidth = 480 }) {
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(0,0,0,0.4)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000, padding: 16,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '20px 16px',
+        overflowY: 'auto',
         animation: 'fadeIn 0.2s ease',
       }}>
       <div
@@ -31,34 +33,37 @@ export default function Modal({ title, onClose, children, maxWidth = 480 }) {
           borderRadius: 20,
           width: '100%',
           maxWidth,
-          maxHeight: '90vh',
-          overflow: 'hidden',
+          // 높이를 화면에 맞게 자동 조절, 넘치면 내부 스크롤
+          maxHeight: 'calc(100vh - 40px)',
           display: 'flex',
           flexDirection: 'column',
           animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1)',
+          // 화면 중앙 정렬을 위해 margin auto
+          margin: 'auto',
         }}>
-        {/* 헤더 */}
+        {/* 헤더 - 고정 */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 20px 16px', borderBottom: '1px solid #f0f0f0', flexShrink: 0
+          padding: '18px 20px 14px',
+          borderBottom: '1px solid #f0f0f0',
+          flexShrink: 0,
+          borderRadius: '20px 20px 0 0',
         }}>
-          <span style={{ fontSize: 17, fontWeight: 700 }}>{title}</span>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>{title}</span>
           <button
             onClick={onClose}
             style={{
-              width: 32, height: 32, borderRadius: '50%',
+              width: 30, height: 30, borderRadius: '50%',
               background: '#f5f5f5', border: 'none', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, color: '#999', transition: 'background 0.2s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#e0e0e0'}
-            onMouseLeave={e => e.currentTarget.style.background = '#f5f5f5'}>
+              fontSize: 14, color: '#999',
+            }}>
             ✕
           </button>
         </div>
 
         {/* 내용 - 스크롤 가능 */}
-        <div style={{ overflowY: 'auto', padding: '20px' }}>
+        <div style={{ overflowY: 'auto', padding: '20px', flex: 1 }}>
           {children}
         </div>
       </div>

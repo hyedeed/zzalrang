@@ -111,7 +111,7 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
   return (
     <div
       onClick={onClose}
-      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:1000, animation:'fadeIn 0.2s ease' }}>
+      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:1000, animation:'fadeIn 0.2s ease', paddingTop: 60 }}>
       <div
         onClick={e => e.stopPropagation()}
         style={{
@@ -119,7 +119,7 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
           borderRadius: '20px 20px 0 0',
           width: '100%',
           maxWidth: 480,
-          maxHeight: '92vh',
+          maxHeight: 'calc(100vh - 60px)',
           display: 'flex',
           flexDirection: 'column',
           animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1)',
