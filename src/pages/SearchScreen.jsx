@@ -6,21 +6,26 @@ const fmt = (n) => Number(n).toLocaleString('ko-KR')
 function getDateRange(preset) {
   const today = new Date()
   const pad = (n) => String(n).padStart(2,'0')
-  const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
-  const todayStr = fmt(today)
+  const fmtD = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+  const todayStr = fmtD(today)
+  if (preset === 'week') { const f = new Date(today); f.setDate(today.getDate()-7); return { from:fmtD(f), to:todayStr } }
+  if (preset === 'month') { const f = new Date(today); f.setMonth(today.getMonth()-1); return { from:fmtD(f), to:todayStr } }
+  if (preset === 'thismonth') { return { from:`${today.getFullYear()}-${pad(today.getMonth()+1)}-01`, to:todayStr } }
+  return { from:'', to:'' }
+}
 
-  if (preset === 'week') {
-    const from = new Date(today); from.setDate(today.getDate() - 7)
-    return { from: fmt(from), to: todayStr }
-  }
-  if (preset === 'month') {
-    const from = new Date(today); from.setMonth(today.getMonth() - 1)
-    return { from: fmt(from), to: todayStr }
-  }
-  if (preset === 'thismonth') {
-    return { from: `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`, to: todayStr }
-  }
-  return { from: '', to: '' }
+// 텍스트에서 키워드 하이라이트
+function Highlight({ text, keyword }) {
+  if (!keyword || !text) return <span>{text}</span>
+  const idx = text.toLowerCase().indexOf(keyword.toLowerCase())
+  if (idx === -1) return <span>{text}</span>
+  return (
+    <span>
+      {text.slice(0, idx)}
+      <mark style={{ background:'#fff3b0', borderRadius:2, padding:'0 1px' }}>{text.slice(idx, idx+keyword.length)}</mark>
+      {text.slice(idx+keyword.length)}
+    </span>
+  )
 }
 
 export default function SearchScreen({ session }) {
@@ -29,7 +34,7 @@ export default function SearchScreen({ session }) {
   const [typeFilter, setTypeFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [currencyFilter, setCurrencyFilter] = useState('')
-  const [datePreset, setDatePreset] = useState('') // 'week','month','thismonth','custom',''
+  const [datePreset, setDatePreset] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [showMonthPicker, setShowMonthPicker] = useState(false)
@@ -46,29 +51,21 @@ export default function SearchScreen({ session }) {
 
   const applyPreset = (preset) => {
     setDatePreset(preset)
-    if (preset !== 'custom' && preset !== 'thismonth_pick') {
-      const range = getDateRange(preset)
-      setDateFrom(range.from)
-      setDateTo(range.to)
-    }
-    if (preset === 'thismonth') {
-      setShowMonthPicker(true)
-    }
+    if (preset === 'thismonth') { setShowMonthPicker(true); return }
+    if (preset !== 'custom') { const r = getDateRange(preset); setDateFrom(r.from); setDateTo(r.to) }
   }
 
   const applyMonthPicker = () => {
-    const y = pickerMonth.getFullYear()
-    const m = pickerMonth.getMonth() + 1
-    const pad = (n) => String(n).padStart(2,'0')
-    const lastDay = new Date(y, m, 0).getDate()
+    const y = pickerMonth.getFullYear(), m = pickerMonth.getMonth()+1
+    const pad = n => String(n).padStart(2,'0')
     setDateFrom(`${y}-${pad(m)}-01`)
-    setDateTo(`${y}-${pad(m)}-${lastDay}`)
+    setDateTo(`${y}-${pad(m)}-${new Date(y,m,0).getDate()}`)
     setShowMonthPicker(false)
   }
 
   const search = useCallback(async () => {
     setLoading(true)
-    let query = supabase.from('records').select('*').eq('user_id', uid).order('date', { ascending: false })
+    let query = supabase.from('records').select('*').eq('user_id', uid).order('date', { ascending:false })
     if (typeFilter !== 'all') query = query.eq('type', typeFilter)
     if (categoryFilter) query = query.eq('category', categoryFilter)
     if (currencyFilter) query = query.eq('currency_code', currencyFilter)
@@ -76,9 +73,17 @@ export default function SearchScreen({ session }) {
     if (dateTo) query = query.lte('date', dateTo)
     const { data } = await query
     let result = data || []
+
+    // 키워드 검색: 메모 + 카테고리 + 금액
     if (keyword.trim()) {
       const kw = keyword.trim().toLowerCase()
-      result = result.filter(r => (r.memo||'').toLowerCase().includes(kw) || r.category.toLowerCase().includes(kw))
+      result = result.filter(r =>
+        (r.memo || '').toLowerCase().includes(kw) ||
+        r.category.toLowerCase().includes(kw) ||
+        r.amount.toString().includes(kw) ||
+        r.currency_code.toLowerCase().includes(kw) ||
+        r.date.includes(kw)
+      )
     }
     setRecords(result)
     setLoading(false)
@@ -102,16 +107,20 @@ export default function SearchScreen({ session }) {
     { id:'custom',    label:'직접 지정' },
   ]
 
+  // 검색 결과 합계
+  const totalIncome  = records.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0)
+  const totalExpense = records.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0)
+
   return (
     <div style={{ padding:'16px' }} className="fade-in">
       {/* 검색창 */}
       <div style={{ position:'relative', marginBottom:14 }}>
-        <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', fontSize:15, color:'#bbb' }}>
+        <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'#bbb' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
         </span>
-        <input className="input-field" placeholder="메모, 카테고리 검색..."
+        <input className="input-field" placeholder="메모, 카테고리, 금액, 날짜 검색..."
           value={keyword} onChange={e=>setKeyword(e.target.value)}
-          style={{ paddingLeft:42, paddingRight: keyword?40:16 }} />
+          style={{ paddingLeft:42, paddingRight:keyword?40:16 }} />
         {keyword && <button onClick={()=>setKeyword('')} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', color:'#bbb', fontSize:18 }}>✕</button>}
       </div>
 
@@ -135,8 +144,10 @@ export default function SearchScreen({ session }) {
             {p.label}
           </button>
         ))}
-        {(dateFrom || dateTo) && (
-          <button onClick={reset} style={{ padding:'7px 12px', borderRadius:20, fontSize:12, background:'#f5f5f5', color:'#bbb' }}>초기화</button>
+        {(dateFrom || dateTo || keyword || categoryFilter || currencyFilter || typeFilter !== 'all') && (
+          <button onClick={reset} style={{ padding:'7px 12px', borderRadius:20, fontSize:12, background:'#fff0f0', color:'#E15F5F' }}>
+            전체 초기화
+          </button>
         )}
       </div>
 
@@ -164,7 +175,7 @@ export default function SearchScreen({ session }) {
       )}
 
       {/* 카테고리/통화 필터 */}
-      <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+      <div style={{ display:'flex', gap:8, marginBottom:12 }}>
         <select className="input-field" value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}
           style={{ flex:1, padding:'9px 28px 9px 12px', fontSize:13 }}>
           <option value="">전체 카테고리</option>
@@ -179,28 +190,45 @@ export default function SearchScreen({ session }) {
 
       {/* 날짜 표시 */}
       {(dateFrom || dateTo) && (
-        <div style={{ fontSize:12, color:'#999', marginBottom:8 }}>
-          {dateFrom} ~ {dateTo}
-        </div>
+        <div style={{ fontSize:12, color:'#999', marginBottom:8 }}>{dateFrom} ~ {dateTo}</div>
       )}
 
-      <div style={{ fontSize:12, color:'#bbb', marginBottom:8 }}>{loading ? '검색 중...' : `${records.length}건`}</div>
+      {/* 결과 요약 */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+        <span style={{ fontSize:12, color:'#bbb' }}>{loading ? '검색 중...' : `${records.length}건`}</span>
+        {records.length > 0 && typeFilter === 'all' && (
+          <div style={{ fontSize:12, display:'flex', gap:10 }}>
+            {totalIncome > 0 && <span style={{ color:'var(--color-income)' }}>+{fmt(totalIncome)}</span>}
+            {totalExpense > 0 && <span style={{ color:'var(--color-expense)' }}>-{fmt(totalExpense)}</span>}
+          </div>
+        )}
+      </div>
 
+      {/* 결과 목록 */}
       {records.length === 0 && !loading ? (
-        <div style={{ textAlign:'center', color:'#ccc', padding:48, fontSize:14 }}>검색 결과가 없어요</div>
+        <div style={{ textAlign:'center', color:'#ccc', padding:48, fontSize:14 }}>
+          {keyword ? `"${keyword}" 검색 결과가 없어요` : '검색 결과가 없어요'}
+        </div>
       ) : (
         <div className="card" style={{ overflow:'hidden' }}>
           {records.map((r, i) => (
             <div key={r.id} style={{ display:'flex', alignItems:'center', padding:'13px 16px', borderBottom:i<records.length-1?'1px solid #f5f5f5':'none', gap:12 }}>
               <div style={{ width:8, height:8, borderRadius:'50%', background:typeColor[r.type], flexShrink:0 }} />
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:14, fontWeight:500 }}>{r.category}</div>
-                <div style={{ fontSize:11, color:'#bbb', marginTop:1 }}>{r.date}{r.memo ? ` · ${r.memo}` : ''}</div>
+                <div style={{ fontSize:14, fontWeight:500 }}>
+                  <Highlight text={r.category} keyword={keyword} />
+                </div>
+                <div style={{ fontSize:11, color:'#bbb', marginTop:1 }}>
+                  {r.date}
+                  {r.memo && <> · <Highlight text={r.memo} keyword={keyword} /></>}
+                </div>
               </div>
               <div style={{ textAlign:'right', flexShrink:0 }}>
                 <div style={{ fontSize:14, fontWeight:700, color:typeColor[r.type] }}>
-                  {typeSign[r.type]}{fmt(r.amount)} <span style={{ fontSize:10, fontWeight:400 }}>{r.currency_code}</span>
+                  {typeSign[r.type]}<Highlight text={fmt(r.amount)} keyword={keyword} />
+                  {' '}<span style={{ fontSize:10, fontWeight:400, color:'#bbb' }}>{r.currency_code}</span>
                 </div>
+                <div style={{ fontSize:10, color:'#ccc' }}>{typeLabel[r.type]}</div>
               </div>
             </div>
           ))}

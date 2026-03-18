@@ -6,26 +6,26 @@ export default function SettingsScreen({ session }) {
   const [tab, setTab] = useState('category')
   const [categories, setCategories] = useState([])
   const [currencies, setCurrencies] = useState([])
-  const [paymentMethods, setPaymentMethods] = useState([])
   const [assets, setAssets] = useState([])
   const [budgets, setBudgets] = useState([])
   const [recurring, setRecurring] = useState([])
+  const [paymentMethods, setPaymentMethods] = useState([]) // 반복내역용
 
   const load = useCallback(async () => {
-    const [{ data: cats }, { data: curr }, { data: pays }, { data: ast }, { data: bud }, { data: rec }] = await Promise.all([
+    const [{ data: cats }, { data: curr }, { data: ast }, { data: bud }, { data: rec }, { data: pays }] = await Promise.all([
       supabase.from('category_items').select('*').eq('user_id', uid),
       supabase.from('currencies').select('*').eq('user_id', uid),
-      supabase.from('payment_methods').select('*').eq('user_id', uid),
       supabase.from('assets').select('*').eq('user_id', uid),
       supabase.from('budgets').select('*').eq('user_id', uid),
       supabase.from('recurring_records').select('*').eq('user_id', uid),
+      supabase.from('payment_methods').select('*').eq('user_id', uid),
     ])
     setCategories(cats || [])
     setCurrencies(curr || [])
-    setPaymentMethods(pays || [])
     setAssets(ast || [])
     setBudgets(bud || [])
     setRecurring(rec || [])
+    setPaymentMethods(pays || [])
   }, [uid])
 
   useEffect(() => { load() }, [load])
@@ -44,18 +44,16 @@ export default function SettingsScreen({ session }) {
   }
 
   const TABS = [
-    { id:'category', label:'카테고리' },
-    { id:'payment',  label:'결제수단' },
-    { id:'currency', label:'통화' },
-    { id:'budget',   label:'예산' },
-    { id:'recurring',label:'반복내역' },
+    { id:'category',  label:'카테고리' },
+    { id:'currency',  label:'통화' },
+    { id:'budget',    label:'예산' },
+    { id:'recurring', label:'반복내역' },
   ]
 
   return (
     <div style={{ padding:'16px' }} className="fade-in">
       <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>설정</div>
 
-      {/* 탭 - 스크롤 가능 */}
       <div style={{ display:'flex', gap:6, overflowX:'auto', marginBottom:20, paddingBottom:4 }}>
         {TABS.map(t => (
           <button key={t.id} onClick={()=>setTab(t.id)}
@@ -69,7 +67,6 @@ export default function SettingsScreen({ session }) {
       </div>
 
       {tab === 'category'  && <CategoryManager uid={uid} categories={categories} onChanged={load} />}
-      {tab === 'payment'   && <PaymentManager uid={uid} paymentMethods={paymentMethods} assets={assets} onChanged={load} />}
       {tab === 'currency'  && <CurrencyManager uid={uid} currencies={currencies} onChanged={load} />}
       {tab === 'budget'    && <BudgetManager uid={uid} budgets={budgets} categories={categories} currencies={currencies} onChanged={load} />}
       {tab === 'recurring' && <RecurringManager uid={uid} recurring={recurring} categories={categories} currencies={currencies} assets={assets} paymentMethods={paymentMethods} onChanged={load} />}
