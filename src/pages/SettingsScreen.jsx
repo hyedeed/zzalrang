@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function SettingsScreen({ session }) {
@@ -9,7 +9,10 @@ export default function SettingsScreen({ session }) {
   const [assets, setAssets] = useState([])
   const [budgets, setBudgets] = useState([])
   const [recurring, setRecurring] = useState([])
-  const [paymentMethods, setPaymentMethods] = useState([]) // 반복내역용
+  const [paymentMethods, setPaymentMethods] = useState([])
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const fileInputRef = useRef(null)
 
   const load = useCallback(async () => {
     const [{ data: cats }, { data: curr }, { data: ast }, { data: bud }, { data: rec }, { data: pays }] = await Promise.all([
@@ -30,6 +33,7 @@ export default function SettingsScreen({ session }) {
 
   useEffect(() => { load() }, [load])
 
+  // CSV 내보내기
   const exportCSV = async () => {
     const { data: records } = await supabase.from('records').select('*').eq('user_id', uid).order('date', { ascending: false })
     if (!records?.length) { alert('내역이 없어요!'); return }
@@ -41,6 +45,99 @@ export default function SettingsScreen({ session }) {
     const a = document.createElement('a')
     a.href = url; a.download = `짤랑짤랑_${new Date().toISOString().split('T')[0]}.csv`
     a.click(); URL.revokeObjectURL(url)
+  }
+
+  // CSV 가져오기
+  const importCSV = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    setImportResult(null)
+
+    try {
+      const text = await file.text()
+      // BOM 제거
+      const cleaned = text.startsWith('\uFEFF') ? text.slice(1) : text
+      const lines = cleaned.split('\n').map(l => l.trim()).filter(Boolean)
+
+      if (lines.length < 2) { setImportResult({ error: '내역이 없는 파일이에요.' }); return }
+
+      // 헤더 파싱
+      const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+      // 지원 컬럼 매핑 (짤랑짤랑 내보내기 형식 + 일반 형식)
+      const findCol = (names) => names.reduce((found, n) => found !== -1 ? found : header.findIndex(h => h.includes(n)), -1)
+      const dateIdx   = findCol(['날짜', 'date', 'Date'])
+      const typeIdx   = findCol(['분류', 'type', '수입지출'])
+      const catIdx    = findCol(['카테고리', 'category'])
+      const amtIdx    = findCol(['금액', 'amount', '금액(원)'])
+      const currIdx   = findCol(['통화', 'currency', 'Currency'])
+      const memoIdx   = findCol(['메모', 'memo', 'note'])
+
+      if (dateIdx === -1 || amtIdx === -1) {
+        setImportResult({ error: '날짜, 금액 컬럼을 찾을 수 없어요.\n컬럼명을 확인해주세요.' })
+        return
+      }
+
+      let added = 0, skipped = 0, errors = 0
+      const toInsert = []
+
+      for (let i = 1; i < lines.length; i++) {
+        try {
+          // 쉼표 안에 따옴표 처리
+          const cols = lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) || lines[i].split(',').map(c=>c.trim())
+
+          const dateRaw = cols[dateIdx] || ''
+          const typeRaw = cols[typeIdx] || '지출'
+          const cat     = cols[catIdx]  || '기타'
+          const amtRaw  = cols[amtIdx]  || '0'
+          const curr    = currIdx !== -1 ? (cols[currIdx] || 'KRW') : 'KRW'
+          const memo    = memoIdx !== -1 ? (cols[memoIdx] || '') : ''
+
+          // 날짜 파싱 (yyyy-mm-dd, yyyy/mm/dd, yyyy.mm.dd 지원)
+          const dateStr = dateRaw.replace(/[./]/g, '-').slice(0, 10)
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { errors++; continue }
+
+          // 금액 파싱 (쉼표, 원화 기호 제거)
+          const amount = parseFloat(amtRaw.replace(/[,₩$\s]/g, ''))
+          if (isNaN(amount) || amount <= 0) { errors++; continue }
+
+          // 분류 파싱
+          let type = 'expense'
+          if (typeRaw.includes('수입') || typeRaw.toLowerCase().includes('income')) type = 'income'
+          else if (typeRaw.includes('이체') || typeRaw.toLowerCase().includes('transfer')) type = 'transfer'
+
+          toInsert.push({
+            user_id: uid, type, amount, date: dateStr,
+            category: type === 'transfer' ? '이체' : cat,
+            currency_code: curr, asset_id: null, memo: memo || null
+          })
+        } catch { errors++ }
+      }
+
+      // 중복 체크 후 삽입
+      if (toInsert.length > 0) {
+        const { data: existing } = await supabase.from('records').select('date,amount,category,type').eq('user_id', uid)
+        const existingSet = new Set((existing||[]).map(r=>`${r.date}_${r.amount}_${r.category}_${r.type}`))
+
+        const newRecords = toInsert.filter(r => {
+          const key = `${r.date}_${r.amount}_${r.category}_${r.type}`
+          if (existingSet.has(key)) { skipped++; return false }
+          return true
+        })
+
+        if (newRecords.length > 0) {
+          await supabase.from('records').insert(newRecords)
+          added = newRecords.length
+        }
+      }
+
+      setImportResult({ added, skipped, errors })
+    } catch (err) {
+      setImportResult({ error: `파일 읽기 실패: ${err.message}` })
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   const TABS = [
@@ -73,6 +170,8 @@ export default function SettingsScreen({ session }) {
 
       {/* 하단 */}
       <div style={{ marginTop:32, display:'flex', flexDirection:'column', gap:10 }}>
+
+        {/* CSV 내보내기 */}
         <button onClick={exportCSV}
           style={{ display:'flex', alignItems:'center', gap:12, padding:'15px 16px', background:'#f5f5f5', borderRadius:12, width:'100%', textAlign:'left' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#424242" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -83,6 +182,48 @@ export default function SettingsScreen({ session }) {
             <div style={{ fontSize:12, color:'#bbb' }}>전체 내역을 엑셀로 저장</div>
           </div>
         </button>
+
+        {/* CSV 가져오기 */}
+        <div style={{ background:'#f5f5f5', borderRadius:12, overflow:'hidden' }}>
+          <input ref={fileInputRef} type="file" accept=".csv" onChange={importCSV} style={{ display:'none' }} />
+          <button onClick={()=>fileInputRef.current?.click()} disabled={importing}
+            style={{ display:'flex', alignItems:'center', gap:12, padding:'15px 16px', background:'none', width:'100%', textAlign:'left', cursor:'pointer' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#424242" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <div>
+              <div style={{ fontSize:14, fontWeight:500, color:'#424242' }}>
+                {importing ? 'CSV 불러오는 중...' : 'CSV 가져오기'}
+              </div>
+              <div style={{ fontSize:12, color:'#bbb' }}>기존 가계부 파일을 불러와요</div>
+            </div>
+          </button>
+
+          {/* 결과 표시 */}
+          {importResult && (
+            <div style={{ padding:'12px 16px', borderTop:'1px solid #ebebeb' }}>
+              {importResult.error ? (
+                <div style={{ fontSize:13, color:'var(--color-expense)' }}>❌ {importResult.error}</div>
+              ) : (
+                <div style={{ fontSize:13, color:'#424242' }}>
+                  ✅ <strong>{importResult.added}건</strong> 추가됨
+                  {importResult.skipped > 0 && <span style={{ color:'#bbb' }}> · {importResult.skipped}건 중복 건너뜀</span>}
+                  {importResult.errors > 0 && <span style={{ color:'#E15F5F' }}> · {importResult.errors}건 오류</span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 형식 안내 */}
+          <div style={{ padding:'10px 16px 14px', borderTop: importResult ? '1px solid #ebebeb' : 'none' }}>
+            <div style={{ fontSize:11, color:'#bbb', lineHeight:1.6 }}>
+              지원 형식: 날짜, 분류(수입/지출), 카테고리, 금액, 통화, 메모<br/>
+              날짜 형식: 2024-01-01 / 2024.01.01 / 2024/01/01<br/>
+              중복 내역은 자동으로 건너뛰어요
+            </div>
+          </div>
+        </div>
+
         <div style={{ padding:'15px 16px', background:'#f5f5f5', borderRadius:12 }}>
           <div style={{ fontSize:12, color:'#bbb', marginBottom:4 }}>로그인 계정</div>
           <div style={{ fontSize:14, color:'#424242' }}>{session.user.email}</div>
