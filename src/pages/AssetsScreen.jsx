@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import Modal from '../components/Modal'
 
 const fmt = (n) => Number(n).toLocaleString('ko-KR', { minimumFractionDigits:0, maximumFractionDigits:2 })
 
@@ -74,13 +75,21 @@ export default function AssetsScreen({ session }) {
         + 자산 추가
       </button>
 
-      {showAddAsset && <AddAssetModal uid={uid} currencies={currencies} onClose={()=>setShowAddAsset(false)} onSaved={()=>{setShowAddAsset(false);load()}} />}
-      {editAsset    && <EditBalanceModal asset={editAsset} onClose={()=>setEditAsset(null)} onSaved={()=>{setEditAsset(null);load()}} />}
+      {showAddAsset && (
+        <Modal title="새 자산 등록" onClose={()=>setShowAddAsset(false)}>
+          <AddAssetForm uid={uid} currencies={currencies} onClose={()=>setShowAddAsset(false)} onSaved={()=>{setShowAddAsset(false);load()}} />
+        </Modal>
+      )}
+      {editAsset && (
+        <Modal title={`${editAsset.name} 잔액 수정`} onClose={()=>setEditAsset(null)} maxWidth={360}>
+          <EditBalanceForm asset={editAsset} onClose={()=>setEditAsset(null)} onSaved={()=>{setEditAsset(null);load()}} />
+        </Modal>
+      )}
     </div>
   )
 }
 
-function EditBalanceModal({ asset, onClose, onSaved }) {
+function EditBalanceForm({ asset, onClose, onSaved }) {
   const [balance, setBalance] = useState(asset.balance.toString())
   const [saving, setSaving] = useState(false)
   const save = async () => {
@@ -91,26 +100,18 @@ function EditBalanceModal({ asset, onClose, onSaved }) {
     setSaving(false); onSaved()
   }
   return (
-    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="modal-box" style={{ maxWidth:360 }}>
-        <div className="modal-header">
-          <span className="modal-title">{asset.name} 잔액 수정</span>
-          <span className="modal-close" onClick={onClose}>✕</span>
-        </div>
-        <div style={{ fontSize:12, color:'#bbb', marginBottom:16 }}>실제 잔액과 다를 때 직접 수정할 수 있어요. 내역 기록에는 영향을 주지 않아요.</div>
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <div>
-            <label className="label">잔액 ({asset.currency_code})</label>
-            <input className="input-field" type="number" value={balance} onChange={e=>setBalance(e.target.value)} autoFocus />
-          </div>
-          <button className="btn-primary" onClick={save} disabled={saving}>{saving?'저장 중...':'저장'}</button>
-        </div>
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div style={{ fontSize:12, color:'#bbb' }}>실제 잔액과 다를 때 직접 수정할 수 있어요. 내역 기록에는 영향을 주지 않아요.</div>
+      <div>
+        <label className="label">잔액 ({asset.currency_code})</label>
+        <input className="input-field" type="number" value={balance} onChange={e=>setBalance(e.target.value)} autoFocus />
       </div>
+      <button className="btn-primary" onClick={save} disabled={saving}>{saving?'저장 중...':'저장'}</button>
     </div>
   )
 }
 
-function AddAssetModal({ uid, currencies, onClose, onSaved }) {
+function AddAssetForm({ uid, currencies, onClose, onSaved }) {
   const [name, setName] = useState('')
   const [code, setCode] = useState(currencies[0]?.code || 'KRW')
   const [assetType, setAssetType] = useState('liquid')
@@ -123,27 +124,22 @@ function AddAssetModal({ uid, currencies, onClose, onSaved }) {
     setSaving(false); onSaved()
   }
   return (
-    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="modal-box">
-        <div className="modal-header"><span className="modal-title">새 자산 등록</span><span className="modal-close" onClick={onClose}>✕</span></div>
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <div><label className="label">자산 이름</label><input className="input-field" placeholder="예: ANZ 통장, 현금 지갑" value={name} onChange={e=>setName(e.target.value)} /></div>
-          <div><label className="label">통화</label>
-            <select className="input-field" value={code} onChange={e=>setCode(e.target.value)}>
-              {currencies.map(c=><option key={c.id} value={c.code}>{c.code}</option>)}
-              {!currencies.length && <option value="KRW">KRW</option>}
-            </select>
-          </div>
-          <div><label className="label">종류</label>
-            <select className="input-field" value={assetType} onChange={e=>setAssetType(e.target.value)}>
-              <option value="liquid">내 자산 (계좌/현금/체크카드)</option>
-              <option value="credit">신용카드 (결제 예정액)</option>
-            </select>
-          </div>
-          <div><label className="label">초기 금액</label><input className="input-field" type="number" placeholder="0" value={balance} onChange={e=>setBalance(e.target.value)} /></div>
-          <button className="btn-primary" onClick={save} disabled={saving}>{saving?'저장 중...':'등록하기'}</button>
-        </div>
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div><label className="label">자산 이름</label><input className="input-field" placeholder="예: ANZ 통장, 현금 지갑" value={name} onChange={e=>setName(e.target.value)} /></div>
+      <div><label className="label">통화</label>
+        <select className="input-field" value={code} onChange={e=>setCode(e.target.value)}>
+          {currencies.map(c=><option key={c.id} value={c.code}>{c.code}</option>)}
+          {!currencies.length && <option value="KRW">KRW</option>}
+        </select>
       </div>
+      <div><label className="label">종류</label>
+        <select className="input-field" value={assetType} onChange={e=>setAssetType(e.target.value)}>
+          <option value="liquid">내 자산 (계좌/현금/체크카드)</option>
+          <option value="credit">신용카드 (결제 예정액)</option>
+        </select>
+      </div>
+      <div><label className="label">초기 금액</label><input className="input-field" type="number" placeholder="0" value={balance} onChange={e=>setBalance(e.target.value)} /></div>
+      <button className="btn-primary" onClick={save} disabled={saving}>{saving?'저장 중...':'등록하기'}</button>
     </div>
   )
 }

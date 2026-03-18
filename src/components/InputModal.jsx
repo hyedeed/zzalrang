@@ -36,7 +36,7 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
 
   // 통화 바뀌면 → 그 통화의 첫 번째 결제수단으로 자동 변경
   useEffect(() => {
-    if (record) return // 수정 모드면 건드리지 않음
+    if (record) return
     const matched = filteredPayments[0]
     if (matched) setPaymentMethodId(matched.id)
   }, [currency])
@@ -44,6 +44,13 @@ export default function InputModal({ session, record, assets, paymentMethods, cu
   useEffect(() => {
     if (!record) setCategory(currentCats[0]?.name || '')
   }, [type])
+
+  // ESC 키로 닫기
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
 
   const dismissKeyboard = () => {
     if (document.activeElement) document.activeElement.blur()

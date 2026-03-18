@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import Modal from '../components/Modal'
 
 const fmt = (n) => Number(n).toLocaleString('ko-KR')
 
@@ -162,16 +163,14 @@ export default function SearchScreen({ session }) {
 
       {/* 월 선택 팝업 */}
       {showMonthPicker && (
-        <div className="modal-overlay" onClick={()=>setShowMonthPicker(false)}>
-          <div className="modal-box" style={{ maxWidth:320 }} onClick={e=>e.stopPropagation()}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-              <button onClick={()=>setPickerMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))} style={{ background:'none', fontSize:20, color:'#bbb' }}>‹</button>
-              <span style={{ fontWeight:700 }}>{pickerMonth.getFullYear()}년 {pickerMonth.getMonth()+1}월</span>
-              <button onClick={()=>setPickerMonth(d=>new Date(d.getFullYear(),d.getMonth()+1,1))} style={{ background:'none', fontSize:20, color:'#bbb' }}>›</button>
-            </div>
-            <button className="btn-primary" onClick={applyMonthPicker}>이 달 선택</button>
+        <Modal title="월 선택" onClose={()=>setShowMonthPicker(false)} maxWidth={320}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+            <button onClick={()=>setPickerMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))} style={{ background:'none', fontSize:20, color:'#bbb' }}>‹</button>
+            <span style={{ fontWeight:700 }}>{pickerMonth.getFullYear()}년 {pickerMonth.getMonth()+1}월</span>
+            <button onClick={()=>setPickerMonth(d=>new Date(d.getFullYear(),d.getMonth()+1,1))} style={{ background:'none', fontSize:20, color:'#bbb' }}>›</button>
           </div>
-        </div>
+          <button className="btn-primary" onClick={applyMonthPicker}>이 달 선택</button>
+        </Modal>
       )}
 
       {/* 카테고리/통화 필터 */}
